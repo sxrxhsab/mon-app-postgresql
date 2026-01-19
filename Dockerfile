@@ -16,6 +16,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copier tout le projet
 COPY . .
-
-EXPOSE 10000  # ton port interne
+# ton port interne
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000"]
