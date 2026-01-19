@@ -17,8 +17,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copier tout le projet
 COPY . .
 
-# Exposer le port Flask
-EXPOSE 5000
-
-# Lancer l'application
-CMD ["python", "app.py"]
+EXPOSE 10000  # ton port interne
+CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:10000"]
