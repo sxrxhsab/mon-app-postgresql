@@ -1126,19 +1126,6 @@ def imprimer_planning_admin():
 
     except Exception as e:
         return f"Erreur d'impression: {str(e)}", 500
-
-
-
-
-
-
-
-
-
-
-
-
-
 @app.route('/administrateur/conflits', methods=['GET', 'POST'])
 @role_required('administrateur')
 def detecter_conflits_route():
@@ -1151,14 +1138,13 @@ def detecter_conflits_route():
     if request.method == 'POST':
         date_debut = request.form.get('date_debut', datetime.now().strftime('%Y-%m-%d'))
         departement = request.form.get('departement', 'Informatique')
-
-        print(f"Date début reçue: {date_debut}")
-        print(f"Département reçu: {departement}")
+    print(f"Date début reçue: {date_debut}")
+    print(f"Département reçu: {departement}")
 
         planning = generer_planning_simule(date_debut, departement)
         conflits = detecter_conflits(planning)
 
-        print(f"Nombre de conflits détectés: {len(conflits)}")
+    print(f"Nombre de conflits détectés: {len(conflits)}")
 
         flash(f'✅ {len(conflits)} conflits détectés', 'info' if not conflits else 'warning')
 
