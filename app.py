@@ -31,10 +31,10 @@ def inject_datetime():
 
 # ==================== BASE DE DONNÉES (OPTIONNEL) ====================
 db_config = {
-    'host': 'localhost',
-    'user': 'postgres',
-    'password': 'VOTRE_MDP',
-    'database': 'VOTRE_BDD',
+    'host': 'dpg-d5n77g6mcj7s73cgqnt0-a.frankfurt-postgres.render.com',
+    'user': 'mydb_v0t8_users',
+    'password': '3nZmE3DRpoD6E7SeF7zk5oHjhoMAKlhh',
+    'database': 'mydb_v0t8',
     'port': 5432
 }
 
@@ -43,7 +43,7 @@ db_config = {
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if 'user' not in session:
+        if 'app_user' not in session:
             flash("Veuillez vous connecter", "warning")
             return redirect(url_for('login'))
         return f(*args, **kwargs)
@@ -54,7 +54,7 @@ def role_required(role):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
-            if 'user' not in session:
+            if 'app_user' not in session:
                 return redirect(url_for('login'))
             if session.get('role') != role:
                 flash("Accès non autorisé", "danger")
@@ -62,7 +62,6 @@ def role_required(role):
             return f(*args, **kwargs)
         return wrapper
     return decorator
-
 
 # ==================== PLANNING SIMULÉ ====================
 def generer_planning_simule(date_debut, departement, nb_jours=7):
@@ -120,18 +119,53 @@ def exporter_csv(data):
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        session['user'] = request.form['username']
-        session['role'] = request.form['role']
-        session['departement'] = "Informatique"
-        flash("Connexion réussie", "success")
+        username = request.form['username']
+        password = request.form['password']
 
-        routes = {
-            'etudiant': 'etudiant_dashboard',
-            'professeur': 'professeur_dashboard',
-            'administrateur': 'administrateur_dashboard'
-        }
-        return redirect(url_for(routes[session['role']]))
+        try:
+            conn = psycopg2.connect(
+                host='dpg-d5n77g6mcj7s73cgqnt0-a.frankfurt-postgres.render.com',
+                user='mydb_v0t8_users',
+                password='3nZmE3DRpoD6E7SeF7zk5oHjhoMAKlhh',
+                dbname='mydb_v0t8',
+                port=5432
+            )
+            cur = conn.cursor()
+
+            cur.execute("""
+                SELECT username, role, departement
+                FROM app_user
+                WHERE username = %s AND password = %s
+            """, (username, password))
+
+            user = cur.fetchone()
+
+            cur.close()
+            conn.close()
+
+            if user:
+                session['app_user'] = user[0]
+                session['role'] = user[1]
+                session['departement'] = user[2]
+
+                flash("Connexion réussie", "success")
+
+                routes = {
+                    'etudiant': 'etudiant_dashboard',
+                    'professeur': 'professeur_dashboard',
+                    'administrateur': 'administrateur_dashboard'
+                }
+                return redirect(url_for(routes[user[1]]))
+            else:
+                flash("Identifiants incorrects", "danger")
+
+        except Exception as e:
+            flash("Erreur de connexion à la base de données", "danger")
+            print(e)
+
     return render_template("interface.html")
+
+
 
 
 @app.route('/logout')
