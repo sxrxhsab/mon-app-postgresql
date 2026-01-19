@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning des Examens - Étudiant</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar-brand {
+            font-weight: bold;
+            color: #0d6efd !important;
+        }
+        .exam-card {
+            border-left: 5px solid #0d6efd;
+            margin-bottom: 15px;
+            transition: transform 0.3s;
+        }
+        .exam-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .exam-date {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .exam-module {
+            font-weight: 600;
+            color: #333;
+        }
+        .exam-salle {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .exam-prof {
+            color: #6c757d;
+            font-style: italic;
+        }
+        .statut-confirme {
+            color: #198754;
+            font-weight: bold;
+        }
+        .btn-action {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .section-title {
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .welcome-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                📚 Planning des Examens
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="me-3 text-muted">Connecté en tant qu'<strong>{{ username }}</strong></span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Déconnexion</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Colonne principale -->
+            <div class="col-lg-9">
+                <!-- Carte de bienvenue -->
+                <div class="welcome-card">
+                    <h2>Bonjour {{ username }} !</h2>
+                    <p class="mb-0">Voici votre planning personnalisé des examens. Consultez les dates, salles et autres informations importantes.</p>
+                </div>
+
+                <!-- Section des examens à venir -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <h3 class="section-title">📅 Examens à venir</h3>
+                        
+                        <!-- Exemple d'examen -->
+                        <div class="card exam-card">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-2">
+                                        <div class="exam-date">
+                                            <span class="fs-4">20</span><br>
+                                            <small>JAN</small><br>
+                                            <small class="text-muted">2025</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5 class="exam-module mb-1">Algorithmique Avancée</h5>
+                                        <p class="mb-1 exam-salle">📍 Salle A201 - 09:00 à 11:00</p>
+                                        <p class="mb-0 exam-prof">👨‍🏫 Prof. Belkacmi</p>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <span class="badge bg-success fs-6 p-2 statut-confirme">CONFIRMÉ</span>
+                                        <p class="mt-2 mb-0 text-muted"><small>Durée: 2h</small></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Autres examens -->
+                        <div class="card exam-card">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-2">
+                                        <div class="exam-date">
+                                            <span class="fs-4">22</span><br>
+                                            <small>JAN</small><br>
+                                            <small class="text-muted">2025</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5 class="exam-module mb-1">Base de Données</h5>
+                                        <p class="mb-1 exam-salle">📍 Salle B105 - 14:00 à 16:30</p>
+                                        <p class="mb-0 exam-prof">👨‍🏫 Prof. Amir</p>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <span class="badge bg-success fs-6 p-2 statut-confirme">CONFIRMÉ</span>
+                                        <p class="mt-2 mb-0 text-muted"><small>Durée: 2h30</small></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card exam-card">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-2">
+                                        <div class="exam-date">
+                                            <span class="fs-4">25</span><br>
+                                            <small>JAN</small><br>
+                                            <small class="text-muted">2025</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5 class="exam-module mb-1">Réseaux Informatiques</h5>
+                                        <p class="mb-1 exam-salle">📍 Salle C304 - 10:00 à 12:00</p>
+                                        <p class="mb-0 exam-prof">👨‍🏫 Prof. Djedai</p>
+                                    </div>
+                                    <div class="col-md-4 text-end">
+                                        <span class="badge bg-success fs-6 p-2 statut-confirme">CONFIRMÉ</span>
+                                        <p class="mt-2 mb-0 text-muted"><small>Durée: 2h</small></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Instructions importantes -->
+                <div class="card shadow-sm mb-4 border-warning">
+                    <div class="card-header bg-warning bg-opacity-25">
+                        <h5 class="mb-0">📌 Instructions importantes</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul>
+                            <li>Présentez-vous <strong>15 minutes avant</strong> le début de chaque examen</li>
+                            <li>Apportez votre <strong>carte d'étudiant</strong> obligatoirement</li>
+                            <li>Vérifiez le matériel autorisé spécifique à chaque examen</li>
+                            <li>En cas d'empêchement, contactez immédiatement le secrétariat</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne latérale - Actions -->
+            <div class="col-lg-3">
+                <div class="card shadow-sm sticky-top" style="top: 20px;">
+                    <div class="card-body">
+                        <h5 class="section-title">⚡ Actions rapides</h5>
+                        
+                        <!-- Recevoir par email -->
+                        <div class="mb-4">
+                            <h6>📧 Recevoir par email</h6>
+                            <form action="{{ url_for('envoyer_rappels') }}" method="GET">
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Votre adresse email</label>
+                                    <input type="email" class="form-control" id="email" name="email" required 
+                                           placeholder="votre.email@exemple.com">
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-action">
+                                    📨 Envoyer le planning par email
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Imprimer -->
+                        <div class="mb-4">
+                            <h6>🖨️ Imprimer</h6>
+                            <form action="{{ url_for('imprimer_planning_etudiant') }}" method="POST" target="_blank">
+                                <button type="submit" class="btn btn-outline-primary btn-action">
+                                    📄 Imprimer le planning
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Ajouter au calendrier -->
+                        <div class="mb-4">
+                            <h6>📅 Ajouter au calendrier</h6>
+                            <a href="{{ url_for('ajouter_calendrier') }}" class="btn btn-outline-success btn-action">
+                                📲 Ajouter à mon calendrier
+                            </a>
+                        </div>
+
+                        <!-- Exporter PDF -->
+                        <div class="mb-4">
+                            <h6>💾 Exporter</h6>
+                            <a href="{{ url_for('exporter_pdf') }}" class="btn btn-outline-secondary btn-action">
+                                📁 Télécharger en PDF
+                            </a>
+                        </div>
+
+                        <!-- Retour -->
+                        <div class="mt-4">
+                            <a href="{{ url_for('etudiant_dashboard') }}" class="btn btn-outline-dark btn-action">
+                                ↩️ Retour au tableau de bord
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Pied de page -->
+                    <div class="card-footer text-center text-muted">
+                        <small>
+                            Dernière mise à jour : {{ datetime.now().strftime('%d/%m/%Y %H:%M') }}<br>
+                            Pour toute modification, contactez le secrétariat
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Scripts simples pour améliorer l'expérience utilisateur
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animation des cartes d'examen
+            const examCards = document.querySelectorAll('.exam-card');
+            examCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    this.classList.toggle('shadow-lg');
+                });
+            });
+            
+            // Confirmation d'envoi d'email
+            const emailForm = document.querySelector('form[action*="envoyer_rappels"]');
+            if (emailForm) {
+                emailForm.addEventListener('submit', function(e) {
+                    const emailInput = this.querySelector('#email');
+                    if (emailInput.value) {
+                        alert('Le planning sera envoyé à ' + emailInput.value + ' dans quelques instants.');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

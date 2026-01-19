@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Doyen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light">
+
+<div class="container mt-5">
+
+    <h2 class="mb-4 text-center">📊 Tableau de bord stratégique – Doyen</h2>
+
+    <!-- KPIs -->
+    <div class="row mb-4">
+
+        <div class="col-md-3">
+            <div class="card text-bg-primary shadow">
+                <div class="card-body text-center">
+                    <h5>Total examens</h5>
+                    <h3>{{ kpi.total_examens }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-bg-success shadow">
+                <div class="card-body text-center">
+                    <h5>Taux occupe salles</h5>
+                    <h3>{{ kpi.taux_salles }} %</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-bg-warning shadow">
+                <div class="card-body text-center">
+                    <h5>Heures professeurs</h5>
+                    <h3>{{ kpi.heures_profs }} h</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-bg-danger shadow">
+                <div class="card-body text-center">
+                    <h5>Conflits détectés</h5>
+                    <h3>{{ kpi.total_conflits }}</h3>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Occupation des salles -->
+    <div class="card mb-4 shadow">
+        <div class="card-header bg-secondary text-white">
+            🏫 Occupation globale des salles
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th>Salle</th>
+                        <th>Capacité</th>
+                        <th>Examens planifiés</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in occupation_salles %}
+                    <tr>
+                        <td>{{ s.nom_salle }}</td>
+                        <td>{{ s.capacite }}</td>
+                        <td>{{ s.nb_examens }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3">Aucune donnée disponible</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Conflits réels -->
+    <div class="card mb-4 shadow">
+    <div class="card-header bg-danger text-white">
+        ⚠️ Conflits détectés (réels)
+        </div>
+        <div class="card-body">
+            <table class="table table-striped text-center">
+                <thead class="table-light">
+                    <tr>
+                        <th>Type de conflit</th>
+                        <th>Nombre</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                    {% if conflits %}
+                        {% for c in conflits %}
+                        <tr>
+                            <td>{{ c.type }}</td>
+                            <td>
+                                {% if c.nb == 0 %}
+                                    <span class="text-success fw-bold">0</span>
+                                {% else %}
+                                    <span class="text-danger fw-bold">{{ c.nb }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <!-- Cas aucun conflit : affichage obligatoire -->
+                        <tr>
+                            <td>Conflits horaires étudiants</td>
+                            <td class="text-success fw-bold">0</td>
+                        </tr>
+                        <tr>
+                            <td>Surcharge des salles</td>
+                            <td class="text-success fw-bold">0</td>
+                        </tr>
+                        <tr>
+                            <td>Conflits horaires professeurs</td>
+                            <td class="text-success fw-bold">0</td>
+                        </tr>
+                    {% endif %}
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Boutons en bas -->
+    <div class="text-center mt-4">
+        <a href="{{ url_for('doyen') }}" class="btn btn-lg btn-secondary">
+            ⬅ Retour
+        </a>
+        <a href="{{ url_for('valider_edt') }}" class="btn btn-lg btn-success">
+            ✅ Valider définitivement l’EDT
+        </a>
+    </div>
+
+
+</div>
+
+</body>
+</html>

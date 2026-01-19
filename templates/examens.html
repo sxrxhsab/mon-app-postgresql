@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Planning des Examens</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background-color: white;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .ok {
+            color: green;
+            font-weight: bold;
+        }
+        .conflit {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Emploi du Temps des Examens</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Département</th>
+            <th>Module</th>
+            <th>Date</th>
+            <th>Durée (h)</th>
+            <th>Salle</th>
+            <th>Capacité</th>
+            <th>Étudiants</th>
+            <th>Professeur</th>
+            <th>Statut</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for examen in examens %}
+        <tr>
+            <td>{{ examen.id_examen }}</td>
+            <td>{{ examen.nom_departement }}</td>
+            <td>{{ examen.nom_module }}</td>
+            <td>{{ examen.date_exam }}</td>
+            <td>{{ examen.duree }}</td>
+            <td>{{ examen.nom_salle }}</td>
+            <td>{{ examen.capacite }}</td>
+            <td>{{ examen.nb_etudiants }}</td>
+            <td>{{ examen.nom_prof }} {{ examen.prenom_prof }}</td>
+            <td class="{{ 'conflit' if examen.statut == 'CONFLIT' else 'ok' }}">
+                {{ examen.statut }}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+</body>
+</html>

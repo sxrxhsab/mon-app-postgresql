@@ -1,0 +1,844 @@
+# ==================== IMPORTS ====================
+from flask import Flask, render_template, request, redirect, session, url_for, flash, jsonify
+import mysql.connector
+from functools import wraps
+from datetime import datetime, timedelta
+import os
+import traceback
+import io
+import csv
+
+# ==================== CONFIGURATION FLASK ====================
+app = Flask(__name__, template_folder='templates', static_folder='static')
+app.secret_key = 'edt-faculte-secret-key-2025'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+
+# ==================== CONTEXT PROCESSOR ====================
+@app.context_processor
+def inject_datetime():
+    return {
+        'datetime': datetime,
+        'now': datetime.now,
+        'timedelta': timedelta,
+        'len': len,
+        'str': str,
+        'int': int
+    }
+
+# ==================== CONFIGURATION BASE DE DONNÉES ====================
+db_config = {
+    'host': 'sabeur.mysql.pythonanywhere-services.com',
+    'user': 'sabeur',
+    'password': 'Azzeddine123',
+    'database': 'sabeur$default',
+    'port': 3306,
+    'charset': 'utf8mb4',
+    'collation': 'utf8mb4_unicode_ci'
+}
+
+# ==================== DÉCORATEURS ====================
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            flash('Veuillez vous connecter pour accéder à cette page', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def role_required(required_role):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user' not in session:
+                flash('Veuillez vous connecter', 'warning')
+                return redirect(url_for('login'))
+            
+            user_role = session.get('role')
+            if user_role != required_role:
+                flash(f'Accès non autorisé. Rôle requis: {required_role}', 'danger')
+                return redirect(url_for('login'))
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def get_db_connection():
+    """Établit une connexion à la base de données"""
+    try:
+        conn = mysql.connector.connect(**db_config)
+        return conn
+    except Exception as e:
+        print(f"❌ Erreur de connexion DB: {e}")
+        return None
+
+# ==================== FONCTIONS UTILITAIRES ====================
+def verifier_utilisateur_simple(username, role):
+    """Vérifie si l'utilisateur existe dans la base SANS MOT DE PASSE"""
+    print(f"🔍 Recherche de: {username} (rôle: {role}) - SANS mot de passe")
+    
+    try:
+        conn = get_db_connection()
+        if not conn:
+            print("❌ Pas de connexion DB - mode démo")
+            return None
+        
+        cursor = conn.cursor(dictionary=True)
+        
+        # Liste des tables à vérifier
+        tables_possibles = ['utilisateurs', 'users', 'user', 'etudiants', 'professeurs', 'administrateurs', 'admins']
+        
+        for table in tables_possibles:
+            try:
+                # Vérifier si la table existe
+                cursor.execute(f"SHOW TABLES LIKE '{table}'")
+                if cursor.fetchone():
+                    print(f"✅ Table '{table}' existe")
+                    
+                    # Obtenir les colonnes de la table
+                    cursor.execute(f"DESCRIBE {table}")
+                    colonnes = [col[0] for col in cursor.fetchall()]
+                    
+                    # Chercher des colonnes de nom d'utilisateur
+                    for col in colonnes:
+                        if 'user' in col.lower() or 'login' in col.lower() or 'nom' in col.lower():
+                            # Rechercher l'utilisateur
+                            query = f"SELECT * FROM {table} WHERE {col} = %s"
+                            cursor.execute(query, (username,))
+                            user = cursor.fetchone()
+                            
+                            if user:
+                                print(f"✅ Utilisateur trouvé dans '{table}.{col}'")
+                                # Convertir en dict
+                                user_dict = dict(user)
+                                user_dict['nom_role'] = role
+                                
+                                # Ajouter des valeurs par défaut
+                                if 'prenom' not in user_dict:
+                                    user_dict['prenom'] = username.capitalize()
+                                if 'nom' not in user_dict:
+                                    user_dict['nom'] = 'Utilisateur'
+                                if 'email' not in user_dict:
+                                    user_dict['email'] = f"{username}@faculte.com"
+                                if 'departement' not in user_dict:
+                                    user_dict['departement'] = 'Informatique' if role == 'etudiant' else 'Administration'
+                                
+                                cursor.close()
+                                conn.close()
+                                return user_dict
+            except Exception as e:
+                print(f"⚠️ Erreur avec table {table}: {e}")
+                continue
+        
+        cursor.close()
+        conn.close()
+        return None
+        
+    except Exception as e:
+        print(f"❌ Erreur générale: {e}")
+        traceback.print_exc()
+        return None
+
+def generer_planning_simule(date_debut=None, departement='Informatique', nb_jours=7):
+    """Génère un planning simulé"""
+    try:
+        if date_debut:
+            if isinstance(date_debut, str):
+                date_obj = datetime.strptime(date_debut, '%Y-%m-%d')
+            else:
+                date_obj = date_debut
+        else:
+            date_obj = datetime.now()
+    except:
+        date_obj = datetime.now()
+    
+    planning = []
+    
+    formations_par_departement = {
+        'Informatique': ['Licence Informatique', 'Master Informatique', 'Licence MIAGE'],
+        'Mathématiques': ['Licence Mathématiques', 'Master Mathématiques', 'Licence Math-Info'],
+        'Physique': ['Licence Physique', 'Master Physique', 'Licence Physique-Chimie'],
+        'Chimie': ['Licence Chimie', 'Master Chimie', 'Licence Chimie-Biologie'],
+        'Biologie': ['Licence Biologie', 'Master Biologie', 'Licence Biochimie']
+    }
+    
+    modules_par_departement = {
+        'Informatique': ['Algorithmique Avancée', 'Base de Données', 'Réseaux Informatiques', 'Programmation Web'],
+        'Mathématiques': ['Algèbre Linéaire', 'Analyse Mathématique', 'Statistiques', 'Probabilités'],
+        'Physique': ['Mécanique Quantique', 'Électromagnétisme', 'Thermodynamique', 'Mécanique Classique'],
+        'Chimie': ['Chimie Organique', 'Biochimie', 'Chimie Analytique', 'Chimie Inorganique'],
+        'Biologie': ['Génétique', 'Biologie Moléculaire', 'Microbiologie', 'Biologie Cellulaire']
+    }
+    
+    salles = ['Amphi A', 'Amphi B', 'Salle 101', 'Salle 102', 'Salle 103', 'Lab Info A', 'Lab Physique']
+    heures = ['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00']
+    professeurs = ['Prof. Belkacmi', 'Prof. Amir', 'Prof. Djedai', 'Prof. Smith', 'Prof. Johnson']
+    
+    for i in range(min(nb_jours, 10)):
+        date_exam = (date_obj + timedelta(days=i)).strftime('%Y-%m-%d')
+        
+        formations = formations_par_departement.get(departement, ['Licence Générale'])
+        formation = formations[i % len(formations)]
+        
+        modules = modules_par_departement.get(departement, ['Module Général'])
+        module = modules[i % len(modules)]
+        
+        examen = {
+            'id_examen': i + 1000,
+            'departement': departement,
+            'formation': formation,
+            'nom_module': module,
+            'date_exam': date_exam,
+            'heure_debut': heures[i % len(heures)],
+            'duree': '2h' if i % 2 == 0 else '3h',
+            'nom_salle': salles[i % len(salles)],
+            'professeur': professeurs[i % len(professeurs)],
+            'capacite_salle': 100,
+            'nb_etudiants': 80,
+            'statut': 'OK',
+            'coefficient': i % 3 + 1
+        }
+        planning.append(examen)
+    
+    return planning
+
+def detecter_conflits_planning(planning):
+    """Détecte les conflits dans un planning"""
+    conflits = []
+    planning_par_salle = {}
+    
+    for examen in planning:
+        cle = f"{examen['date_exam']}_{examen['heure_debut']}_{examen['nom_salle']}"
+        if cle in planning_par_salle:
+            conflits.append({
+                'type': 'SALLE',
+                'message': f"Conflit de salle: {examen['nom_salle']} doublement réservée le {examen['date_exam']} à {examen['heure_debut']}",
+                'date': examen['date_exam'],
+                'salle': examen['nom_salle']
+            })
+        else:
+            planning_par_salle[cle] = examen
+    
+    return conflits
+
+def exporter_csv(data, filename):
+    """Exporte des données en CSV"""
+    try:
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=';')
+        
+        if data and len(data) > 0:
+            # Écrire les en-têtes
+            headers = data[0].keys()
+            writer.writerow(headers)
+            
+            # Écrire les données
+            for row in data:
+                writer.writerow([str(row.get(h, '')) for h in headers])
+        
+        output.seek(0)
+        return output.getvalue()
+    except Exception as e:
+        print(f"❌ Erreur d'export CSV: {e}")
+        return None
+
+# ==================== ROUTES PUBLIQUES ====================
+@app.route('/', methods=['GET', 'POST'])
+def login():
+    """Page de connexion - SANS VÉRIFICATION DE MOT DE PASSE"""
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        role = request.form.get('role', '').strip().lower()
+        password = request.form.get('password', '').strip()  # Récupéré mais ignoré
+        
+        print(f"🔑 Tentative de connexion: username={username}, role={role}")
+        
+        if not username or not role:
+            flash('Veuillez remplir tous les champs obligatoires', 'danger')
+            return render_template('interface.html')
+        
+        # Vérifier si l'utilisateur existe en base (SANS mot de passe)
+        user_data = verifier_utilisateur_simple(username, role)
+        
+        if user_data:
+            print(f"✅ Utilisateur trouvé en base: {username}")
+            flash('Connexion réussie!', 'success')
+        else:
+            print(f"⚠️ Utilisateur non trouvé en base, mode démo activé")
+            
+            # Créer un utilisateur de démonstration
+            user_data = {
+                'nom_utilisateur': username,
+                'nom_role': role,
+                'prenom': username.capitalize(),
+                'nom': 'Démo',
+                'email': f'{username}@faculte.com',
+                'departement': 'Informatique' if role == 'etudiant' else 'Administration'
+            }
+            flash('Mode démo activé. Bienvenue!', 'info')
+        
+        # Créer la session (IGNORE COMPLÈTEMENT LE MOT DE PASSE)
+        session['user'] = user_data['nom_utilisateur']
+        session['role'] = user_data['nom_role']
+        session['full_name'] = f"{user_data.get('prenom', username)} {user_data.get('nom', '')}".strip()
+        session['departement'] = user_data.get('departement', 'Informatique')
+        session['email'] = user_data.get('email', f'{username}@faculte.com')
+        
+        print(f"✅ Session créée: user={session['user']}, role={session['role']}")
+        
+        # Redirection selon le rôle
+        redirect_routes = {
+            'etudiant': 'etudiant_dashboard',
+            'professeur': 'professeur_dashboard',
+            'administrateur': 'administrateur_dashboard',
+            'chef_departement': 'chef_departement_dashboard',
+            'doyen': 'doyen_dashboard'
+        }
+        
+        route = redirect_routes.get(role)
+        if route:
+            return redirect(url_for(route))
+        else:
+            flash('Rôle non reconnu', 'danger')
+            return redirect(url_for('login'))
+    
+    return render_template('interface.html')
+
+@app.route('/logout')
+def logout():
+    """Déconnexion"""
+    session.clear()
+    flash('Vous avez été déconnecté avec succès', 'info')
+    return redirect(url_for('login'))
+
+# ==================== ROUTES ÉTUDIANT ====================
+@app.route('/etudiant/dashboard')
+@login_required
+@role_required('etudiant')
+def etudiant_dashboard():
+    """Tableau de bord étudiant"""
+    try:
+        stats = {
+            'total_examens': 6,
+            'examens_prochains': 3,
+            'examens_termines': 2,
+            'moyenne': 14.5
+        }
+        
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'),
+                                          session.get('departement', 'Informatique'),
+                                          nb_jours=5)
+        
+        return render_template('etudiant_dashboard.html',
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'),
+                             departement=session.get('departement'),
+                             stats=stats,
+                             planning=planning[:5])
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('login'))
+
+@app.route('/etudiant/planning')
+@login_required
+@role_required('etudiant')
+def planning_etudiant():
+    """Planning étudiant"""
+    try:
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'),
+                                          session.get('departement', 'Informatique'))
+        
+        return render_template('planning_etudiant.html',
+                             planning=planning,
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'),
+                             departement=session.get('departement'))
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('etudiant_dashboard'))
+
+@app.route('/etudiant/examens')
+@login_required
+@role_required('etudiant')
+def examens_etudiant():
+    """Examens de l'étudiant"""
+    try:
+        examens = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'),
+                                         session.get('departement', 'Informatique'),
+                                         nb_jours=10)
+        
+        # Ajouter des notes simulées
+        for i, examen in enumerate(examens):
+            examen['note'] = 10 + (i % 11)
+            examen['appreciation'] = ['Excellent', 'Très bien', 'Bien', 'Assez bien', 'Passable'][i % 5]
+            examen['date_publication'] = (datetime.now() + timedelta(days=i+5)).strftime('%d/%m/%Y')
+        
+        return render_template('examens_etudiant.html',
+                             examens=examens,
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'))
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('etudiant_dashboard'))
+
+@app.route('/etudiant/export_csv')
+@login_required
+@role_required('etudiant')
+def export_csv_etudiant():
+    """Export CSV du planning"""
+    try:
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'),
+                                         session.get('departement', 'Informatique'))
+        
+        csv_content = exporter_csv(planning, f"planning_{session.get('user')}.csv")
+        
+        if csv_content:
+            response = jsonify({"csv": csv_content})
+            return response
+        else:
+            flash('Erreur lors de la génération du CSV', 'danger')
+            return redirect(url_for('etudiant_dashboard'))
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('etudiant_dashboard'))
+
+# ==================== ROUTES PROFESSEUR ====================
+@app.route('/professeur/dashboard')
+@login_required
+@role_required('professeur')
+def professeur_dashboard():
+    """Tableau de bord professeur"""
+    try:
+        stats = {
+            'examens_a_surveiller': 8,
+            'examens_corriges': 15,
+            'moyenne_classe': 13.2
+        }
+        
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'), 'Informatique')
+        
+        return render_template('professeur_dashboard.html',
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'),
+                             stats=stats,
+                             planning=planning[:5])
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('login'))
+
+@app.route('/professeur/planning')
+@login_required
+@role_required('professeur')
+def planning_professeur():
+    """Planning professeur"""
+    try:
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'), 'Informatique')
+        
+        return render_template('planning_professeur.html',
+                             planning=planning,
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'))
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('professeur_dashboard'))
+
+# ==================== ROUTES ADMINISTRATEUR ====================
+@app.route('/administrateur/dashboard')
+@login_required
+@role_required('administrateur')
+def administrateur_dashboard():
+    """Tableau de bord administrateur"""
+    try:
+        stats = {
+            'total_utilisateurs': 450,
+            'examens_planifies': 85,
+            'conflits_resolus': 12,
+            'salles_utilisees': 25
+        }
+        
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'), 'Informatique')
+        conflits = detecter_conflits_planning(planning)
+        
+        return render_template('administrateur_dashboard.html',
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'),
+                             stats=stats,
+                             planning_recent=planning[:5],
+                             conflits_recent=conflits[:3])
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('login'))
+
+@app.route('/administrateur/generer', methods=['GET', 'POST'])
+@login_required
+@role_required('administrateur')
+def generer_edt():
+    """Génération de l'EDT"""
+    if request.method == 'POST':
+        try:
+            date_debut = request.form.get('date_debut', '')
+            departement = request.form.get('departement', 'Informatique')
+            
+            if not date_debut:
+                date_debut = datetime.now().strftime('%Y-%m-%d')
+            
+            planning = generer_planning_simule(date_debut, departement)
+            conflits = detecter_conflits_planning(planning)
+            
+            stats = {
+                'total_examens': len(planning),
+                'conflits': len(conflits),
+                'salles_utilisees': len(set(e['nom_salle'] for e in planning))
+            }
+            
+            flash(f'✅ EDT généré pour {departement} avec {len(planning)} examens', 'success')
+            
+            return render_template('generer_edt.html',
+                                 planning=planning,
+                                 conflits=conflits,
+                                 stats=stats,
+                                 date_debut=date_debut,
+                                 departement=departement,
+                                 username=session.get('user'),
+                                 full_name=session.get('full_name'),
+                                 role=session.get('role'))
+        except Exception as e:
+            flash(f'Erreur: {str(e)}', 'danger')
+            return redirect(url_for('generer_edt'))
+    
+    date_par_defaut = datetime.now().strftime('%Y-%m-%d')
+    return render_template('generer_edt.html',
+                         date_debut=date_par_defaut,
+                         username=session.get('user'),
+                         full_name=session.get('full_name'),
+                         role=session.get('role'))
+
+@app.route('/administrateur/conflits')
+@login_required
+@role_required('administrateur')
+def detecter_conflits():
+    """Détection des conflits"""
+    try:
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'), 'Informatique')
+        conflits = detecter_conflits_planning(planning)
+        
+        return render_template('detecter_conflits.html',
+                             conflits=conflits,
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'))
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('administrateur_dashboard'))
+
+@app.route('/administrateur/optimiser')
+@login_required
+@role_required('administrateur')
+def optimiser_ressources():
+    """Optimisation des ressources"""
+    return render_template('optimiser_ressources.html',
+                         username=session.get('user'),
+                         full_name=session.get('full_name'),
+                         role=session.get('role'))
+
+@app.route('/administrateur/export_csv', methods=['POST'])
+@login_required
+@role_required('administrateur')
+def export_csv_admin():
+    """Export CSV de l'EDT"""
+    try:
+        date_debut = request.form.get('date_debut', datetime.now().strftime('%Y-%m-%d'))
+        departement = request.form.get('departement', 'Informatique')
+        
+        planning = generer_planning_simule(date_debut, departement)
+        csv_content = exporter_csv(planning, f"edt_{departement}_{date_debut}.csv")
+        
+        if csv_content:
+            response = jsonify({"csv": csv_content})
+            return response
+        else:
+            flash('Erreur lors de la génération du CSV', 'danger')
+            return redirect(url_for('generer_edt'))
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('generer_edt'))
+
+# ==================== ROUTES DOYEN ====================
+@app.route('/doyen/dashboard')
+@login_required
+@role_required('doyen')
+def doyen_dashboard():
+    """Tableau de bord doyen"""
+    try:
+        stats = {
+            'total_departements': 5,
+            'total_etudiants': 1250,
+            'total_professeurs': 85,
+            'examens_planifies': 120
+        }
+        
+        planning_tous = []
+        for dept in ['Informatique', 'Mathématiques', 'Physique', 'Chimie', 'Biologie']:
+            planning_tous.extend(generer_planning_simule(datetime.now().strftime('%Y-%m-%d'), dept, nb_jours=2))
+        
+        return render_template('doyen_dashboard.html',
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'),
+                             stats=stats,
+                             planning=planning_tous[:8])
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('login'))
+
+@app.route('/doyen/enseignants')
+@login_required
+@role_required('doyen')
+def doyen_enseignants():
+    """Gestion des enseignants"""
+    try:
+        enseignants = []
+        for i in range(15):
+            enseignants.append({
+                'id': i + 1,
+                'nom': f'Professeur{i+1}',
+                'prenom': f'Prénom{i+1}',
+                'departement': ['Informatique', 'Mathématiques', 'Physique', 'Chimie', 'Biologie'][i % 5],
+                'email': f'prof{i+1}@faculte.com',
+                'statut': 'Titulaire',
+                'heures': 192
+            })
+        
+        return render_template('doyen_enseignants.html',
+                             enseignants=enseignants,
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'))
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('doyen_dashboard'))
+
+@app.route('/doyen/valider')
+@login_required
+@role_required('doyen')
+def valider_edt():
+    """Validation de l'EDT"""
+    try:
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'), 'Informatique')
+        
+        for examen in planning:
+            examen['valide_par'] = 'Non validé'
+            if int(examen['id_examen']) % 3 == 0:
+                examen['valide_par'] = 'Doyen'
+        
+        return render_template('valider_edt.html',
+                             planning=planning,
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'))
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('doyen_dashboard'))
+
+# ==================== ROUTES CHEF DÉPARTEMENT ====================
+@app.route('/chef_departement/dashboard')
+@login_required
+@role_required('chef_departement')
+def chef_departement_dashboard():
+    """Tableau de bord chef de département"""
+    try:
+        stats = {
+            'total_etudiants': 250,
+            'total_professeurs': 18,
+            'examens_departement': 35,
+            'moyenne_departement': 12.8
+        }
+        
+        departement = session.get('departement', 'Informatique')
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'), departement)
+        
+        return render_template('chef_departement_dashboard.html',
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'),
+                             stats=stats,
+                             departement=departement,
+                             planning=planning[:5])
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('login'))
+
+@app.route('/chef_departement/planning')
+@login_required
+@role_required('chef_departement')
+def planning_chef_departement():
+    """Planning du département"""
+    try:
+        departement = session.get('departement', 'Informatique')
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'), departement)
+        
+        return render_template('planning_chef_departement.html',
+                             planning=planning,
+                             departement=departement,
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'))
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('chef_departement_dashboard'))
+
+@app.route('/chef_departement/valider')
+@login_required
+@role_required('chef_departement')
+def valider_edt_chef():
+    """Validation de l'EDT par le chef"""
+    try:
+        departement = session.get('departement', 'Informatique')
+        planning = generer_planning_simule(datetime.now().strftime('%Y-%m-%d'), departement)
+        
+        for examen in planning:
+            examen['valide_par'] = 'Non validé'
+            if int(examen['id_examen']) % 2 == 0:
+                examen['valide_par'] = 'Chef Département'
+        
+        return render_template('valider_edt_chef.html',
+                             planning=planning,
+                             username=session.get('user'),
+                             full_name=session.get('full_name'),
+                             role=session.get('role'),
+                             departement=departement)
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'danger')
+        return redirect(url_for('chef_departement_dashboard'))
+
+# ==================== ROUTES COMMUNES ====================
+@app.route('/profile')
+@login_required
+def profile():
+    """Profil utilisateur"""
+    user_info = {
+        'username': session.get('user'),
+        'full_name': session.get('full_name'),
+        'role': session.get('role'),
+        'departement': session.get('departement', 'Non spécifié'),
+        'email': session.get('email', 'Non spécifié'),
+        'derniere_connexion': datetime.now().strftime('%d/%m/%Y à %H:%M')
+    }
+    
+    return render_template('profile.html',
+                         user=user_info,
+                         username=session.get('user'),
+                         full_name=session.get('full_name'),
+                         role=session.get('role'))
+
+@app.route('/a_propos')
+def a_propos():
+    """Page À propos"""
+    return render_template('a_propos.html',
+                         username=session.get('user'),
+                         full_name=session.get('full_name'),
+                         role=session.get('role'))
+
+@app.route('/contact')
+def contact():
+    """Page Contact"""
+    return render_template('contact.html',
+                         username=session.get('user'),
+                         full_name=session.get('full_name'),
+                         role=session.get('role'))
+
+# ==================== ROUTES DE DEBUG ====================
+@app.route('/debug/users')
+def debug_users():
+    """Debug des utilisateurs en base"""
+    try:
+        conn = get_db_connection()
+        if conn:
+            cursor = conn.cursor(dictionary=True)
+            
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
+            
+            result = {"tables": []}
+            for table_info in tables:
+                table_name = list(table_info.values())[0]
+                result["tables"].append(table_name)
+                
+                try:
+                    cursor.execute(f"DESCRIBE {table_name}")
+                    colonnes = [col[0] for col in cursor.fetchall()]
+                    result[table_name] = {
+                        "colonnes": colonnes,
+                        "exemple": []
+                    }
+                    
+                    cursor.execute(f"SELECT * FROM {table_name} LIMIT 3")
+                    lignes = cursor.fetchall()
+                    for ligne in lignes:
+                        result[table_name]["exemple"].append(dict(ligne))
+                        
+                except Exception as e:
+                    result[table_name] = {"erreur": str(e)}
+            
+            cursor.close()
+            conn.close()
+            
+            return jsonify(result)
+        else:
+            return jsonify({"error": "Pas de connexion à la base"})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+# ==================== GESTION D'ERREURS ====================
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('404.html',
+                         username=session.get('user'),
+                         full_name=session.get('full_name'),
+                         role=session.get('role')), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    print(f"❌ Erreur 500: {str(e)}")
+    traceback.print_exc()
+    return render_template('500.html',
+                         username=session.get('user'),
+                         full_name=session.get('full_name'),
+                         role=session.get('role')), 500
+
+# ==================== LANCEMENT ====================
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('DEBUG', 'True').lower() == 'true'
+    
+    print(f"""
+    ╔══════════════════════════════════════════════════════╗
+    ║  🚀 Système EDT - Faculté des Sciences               ║
+    ║  📅 Gestion des Emplois du Temps d'Examens           ║
+    ║  👥 Rôles: Étudiant, Professeur, Admin, Chef, Doyen ║
+    ║  🔓 CONNEXION: Username + Rôle seulement             ║
+    ║  🔒 Le mot de passe est IGNORÉ (non vérifié)         ║
+    ║  🌐 URL: http://localhost:{port}                     ║
+    ╚══════════════════════════════════════════════════════╝
+    """)
+    
+    print("\n📋 Mode de connexion:")
+    print("   1. Entrez un nom d'utilisateur")
+    print("   2. Sélectionnez un rôle")
+    print("   3. Le champ mot de passe est IGNORÉ")
+    print("\n🔑 Comptes de test rapide:")
+    print("   - Username: etudiant, Role: etudiant")
+    print("   - Username: prof, Role: professeur")
+    print("   - Username: admin, Role: administrateur")
+    print("   - Username: chef, Role: chef_departement")
+    print("   - Username: doyen, Role: doyen")
+    print("\n💡 Le système fonctionne TOUJOURS!")
+    print("🚀 Lancement de l'application...")
+    
+    app.run(host='0.0.0.0', port=port, debug=debug)

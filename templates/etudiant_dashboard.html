@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Tableau de Bord Étudiant</h2>
+<p>Bienvenue, {{ current_user.nom }} !</p>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Mes Cours</h5>
+                <p class="card-text">Accéder à mes cours inscrits.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Emploi du Temps</h5>
+                <p class="card-text">Voir mon emploi du temps.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

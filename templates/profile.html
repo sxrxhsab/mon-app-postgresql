@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Mon Profil{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-user-circle"></i> Mon Profil</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-4 text-center">
+                            <div class="profile-avatar">
+                                <i class="fas fa-user fa-5x text-secondary"></i>
+                            </div>
+                            <h5 class="mt-3">{{ session.nom }} {{ session.prenom }}</h5>
+                            <span class="badge bg-{{ 'success' if session.role == 'administrateur' else 'info' if session.role == 'chef_departement' else 'warning' if session.role == 'enseignant' else 'primary' }}">
+                                {{ session.role|title }}
+                            </span>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong><i class="fas fa-envelope"></i> Email :</strong>
+                                    <p class="text-muted">{{ session.email }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong><i class="fas fa-id-card"></i> ID :</strong>
+                                    <p class="text-muted">{{ session.user_id }}</p>
+                                </div>
+                            </div>
+                            
+                            {% if session.role == 'etudiant' %}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong><i class="fas fa-graduation-cap"></i> Filière :</strong>
+                                    <p class="text-muted">{{ session.filiere or 'Non spécifiée' }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong><i class="fas fa-calendar-alt"></i> Niveau :</strong>
+                                    <p class="text-muted">{{ session.niveau or 'Non spécifié' }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if session.role == 'enseignant' %}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <strong><i class="fas fa-book"></i> Matière :</strong>
+                                    <p class="text-muted">{{ session.matiere or 'Non spécifiée' }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left"></i> Retour
+                                </a>
+                                <a href="{{ url_for('logout') }}" class="btn btn-danger">
+                                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
